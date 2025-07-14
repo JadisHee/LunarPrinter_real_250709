@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<param>
+    <agv>
+        <!--移动平台的通讯接口-->
+        <ip>192.168.1.166</ip>
+        <ams_id>192.168.1.166.1.1</ams_id>
+        <port>801</port>
+
+        <!--是否进行自动导航-->
+        <auto_nav>0</auto_nav>
+        <!--导航路径-->
+        <nav_path>1</nav_path>
+
+
+        <!--各停车码在全局坐标系下偏差的变换矩阵-->
+        <tag id='421'>
+            <trans_mat_file>0_trans_mat/trans_mat_1_421.csv</trans_mat_file>
+        </tag>
+
+        <tag id='417'>
+            <trans_mat_file>0_trans_mat/trans_mat_2_417.csv</trans_mat_file>
+        </tag>
+
+        <tag id='335'>
+            <trans_mat_file>0_trans_mat/trans_mat_3_335.csv</trans_mat_file>
+        </tag>
+
+        <tag id='394'>
+            <trans_mat_file>0_trans_mat/trans_mat_4_394.csv</trans_mat_file>
+        </tag>
+    </agv>
+
+    <printer>
+        <!--机械臂的通讯接口-->
+        <ip>192.168.1.101</ip>
+        <port>6001</port>
+
+        <!--挤出头工具外参变换矩阵-->
+        <tool_mat_file>0_trans_mat/trans_mat_tool.csv</tool_mat_file>
+
+        <!--机械臂在相机坐标系下的相机外参矩阵-->
+        <trans_mat_cam_arm_file>0_trans_mat/trans_mat_cam_arm.csv</trans_mat_cam_arm_file>
+
+        <!--打印路径的文件夹-->
+        <path_file_doc>2_path_csv/2_pretreat_data/lunar_house_250623</path_file_doc>
+
+        <!--机械臂末端姿态文件-->
+        <tool_posture_file>0_trans_mat/tool_posture.csv</tool_posture_file>
+
+        <!--打印第几层-->
+        <which_floor>1</which_floor>
+        <!--1：外墙，2：加强筋，3：内墙-->
+        <which_part>2</which_part>
+        <!--指定线速度-->
+        <linear_speed>100</linear_speed>
+        <!--指定加速度-->
+        <linear_acc>50</linear_acc>
+        
+        <!--是否为漏沙实验-->
+        <sand_test>1</sand_test>
+        <!--漏沙高度-->
+        <sand_hight>200</sand_hight>
+    </printer>
+</param>
