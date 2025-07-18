@@ -137,7 +137,7 @@ class plc_ctrl:
         # 开启泵机变频器
         self.plc_var.write_runing_start_cmd()
         print('挤出头已开启')
-        time.sleep(5)
+        # time.sleep(1)
         # self.plc_var.connection_close()
 
     def extruder_close(self):
@@ -435,7 +435,16 @@ class arm_status:
         '''
         
         sock = socket.create_connection((self.ip,self.port))
+        packet = self.build_query_packet()
+        sock.sendall(packet)
 
+        t_start = time.time()
+        run_time = 0
+        t_ = time.time()
+
+        # while 
+
+        
         recv_data = sock.recv(4096)
 
         real_pos_acs, real_pos_msc, axis_vel, axis_acc = self.parse_response(recv_data)
@@ -471,9 +480,69 @@ class printer_ctrl:
             tag_mat: 变换矩阵
         '''
         tag_trans_tools = transform_tools.code_bias_transform()
+        # trans = [tag_pos[0],tag_pos[1],0]
+        # rot = [0,0,tag_pos[2]]
+        # trans_mat = tag_trans_tools.CodeDateToTransMat(trans)
+        # rot_mat = tag_trans_tools.CodeDateToTransMat(rot)
+        # tag_mat = rot_mat @ trans_mat
         tag_mat = tag_trans_tools.CodeDateToTransMat(tag_pos)
         return tag_mat
 
+    def center_confirm(self):
+        print('正在获取当前二维码信息')
+        tag_data = self.plc.get_tag_data()
+
+        if tag_data != 0:
+            print('获取二维码成功，当前二维码数据为: ', tag_data)
+        else:
+            return 0
+        
+        tag_id = tag_data[0]
+        current_tag_pos = [tag_data[1],tag_data[2],tag_data[3]]
+
+        trans_mat_bias_file_ = '0_trans_mat/trans_mat_1_bias.csv'
+        trans_mat_bias_ = np.loadtxt(trans_mat_bias_file_, delimiter=',')
+
+        trans_mat_bias_file = '0_trans_mat/trans_mat_cam_arm_bias.csv'
+        trans_mat_bias = np.loadtxt(trans_mat_bias_file, delimiter=',')
+
+        # tag --> cam
+        trans_mat_current_tag = self.tag_pose_to_mat(current_tag_pos)
+
+        # if tag_id == 421:
+        #     which_cut = 1
+        # elif tag_id == 417:
+        #     which_cut = 2
+        # elif tag_id == 335:
+        #     which_cut = 3
+        # elif tag_id == 394:
+        #     which_cut = 4
+
+        trans_mat_bias_file = '0_trans_mat/trans_mat_cam_arm_bias.csv'
+        trans_mat_bias = np.loadtxt(trans_mat_bias_file, delimiter=',')
+
+        # 载入世界坐标系至当前二维码的固定变换
+        for i in range(len(self.params.agv_attribute.tags_attribute)):
+            if self.params.agv_attribute.tags_attribute[i].id == tag_id:
+                # world --> tag
+                trans_mat_world_tag = self.params.agv_attribute.tags_attribute[i].trans_mat
+
+        # cam --> arm_base
+        trans_mat_cam_arm = self.params.printer_attribute.trans_mat_cam_arm
+
+        A = np.array([
+                [1,0,0,0],
+                [0,1,0,0],
+                [0,0,1,0],
+                [0,0,0,1]
+            ])
+        trans_mat_world_arm =  trans_mat_world_tag @ trans_mat_current_tag @ trans_mat_cam_arm
+        A_ = trans_mat_bias_ @ trans_mat_bias @ np.linalg.inv(trans_mat_world_arm) @ A
+        np.set_printoptions(suppress=True, precision=6)
+        print('原点坐标应为: \n',A_)
+
+        print("按空格退出程序...")
+        keyboard.wait('space')
 
     def path_from_world_to_arm(self,tag_data):
         # 计算当前所在二维码与二维码相机之间的变换
@@ -492,12 +561,16 @@ class printer_ctrl:
         elif tag_id == 394:
             which_cut = 4
 
-        trans_mat_bias_file = '0_trans_mat/trans_mat_' + str(which_cut) + '_bias.csv'
+        trans_mat_bias_file_ = '0_trans_mat/trans_mat_' + str(which_cut) + '_bias.csv'
+        trans_mat_bias_ = np.loadtxt(trans_mat_bias_file_, delimiter=',')
+
+        trans_mat_bias_file = '0_trans_mat/trans_mat_cam_arm_bias.csv'
         trans_mat_bias = np.loadtxt(trans_mat_bias_file, delimiter=',')
 
 
         # 载入当前二维码对应的原始路径
         source_path_file = self.params.printer_attribute.path_file_doc + '/' + str(self.params.printer_attribute.witch_floor) + '/' + str(self.params.printer_attribute.which_part) + '/' + str(which_cut) + '.csv'
+        print('当前路径文件为:',source_path_file)
         source_path = np.loadtxt(source_path_file, delimiter=',')
         tool_path = source_path
         # 载入世界坐标系至当前二维码的固定变换
@@ -510,7 +583,7 @@ class printer_ctrl:
         trans_mat_cam_arm = self.params.printer_attribute.trans_mat_cam_arm
 
         # world --> arm_base
-        trans_mat_world_arm =  trans_mat_world_tag @ trans_mat_current_tag @ trans_mat_cam_arm @ trans_mat_bias
+        trans_mat_world_arm =  trans_mat_world_tag @ trans_mat_current_tag @ trans_mat_cam_arm
         np.set_printoptions(suppress=True, precision=6)
         # print(trans_mat_world_arm)
 
@@ -523,7 +596,7 @@ class printer_ctrl:
                 [source_path[j,2]],
                 [1]
             ])
-            target_waypoint = np.linalg.inv(trans_mat_world_arm) @ source_waypoint
+            target_waypoint = trans_mat_bias_ @ trans_mat_bias @ np.linalg.inv(trans_mat_world_arm) @ source_waypoint
             # 赋值
             tool_path[j,0] = target_waypoint[0,0]
             tool_path[j,1] = target_waypoint[1,0]
@@ -557,6 +630,183 @@ class printer_ctrl:
 
         return flange_tail_path
 
+    def hz_confirm(self,pos_list):
+
+        tool_hz_list = []
+        d_hz_list = []
+        
+        
+        for i in range(len(pos_list)):
+            pos_ = pos_list[i]
+
+            pos_[1] = pos_[1] - 118
+            pos_[2] = pos_[2] + 200
+            socketFd = nrc.connect_robot(self.arm.ip,self.arm.port)
+            print('初始化机械臂id: ', socketFd)
+            if socketFd <= 0:
+                print('连接失败，程序即将退出')
+                time.sleep(3)
+                return 0
+            else:
+                print('机械臂连接成功')
+            self.arm.moveP_test(socketFd,pos_,vec=self.params.printer_attribute.linear_speed,acc=self.params.printer_attribute.linear_acc)
+
+            if i == 0:
+                print("等待机械臂稳定后,按空格键继续...")
+                keyboard.wait('space')
+            else:
+                time.sleep(2)
+
+            tool_hz = self.plc.read_hz() - 353 
+
+            # tool_hz_list.append(tool_hz)
+
+            d_hz = tool_hz - 200 -self.params.printer_attribute.first_floor_height
+
+            if d_hz > 15:
+                time.sleep(3)
+                tool_hz = self.plc.read_hz() - 353 
+                d_hz = tool_hz - 200 -self.params.printer_attribute.first_floor_height
+
+            tool_hz_list.append(tool_hz)
+            d_hz_list.append(d_hz)
+
+            print(tool_hz,d_hz)
+            nrc.disconnect_robot(socketFd)
+            time.sleep(1)
+
+        
+
+        return tool_hz_list, d_hz_list
+
+    def save_first_floor_dh(self,pos_list,tag_data):
+        _,dh = self.hz_confirm(pos_list)
+
+        tag_id = tag_data[0]
+
+        if tag_id == 421:
+            which_cut = 1
+        elif tag_id == 417:
+            which_cut = 2
+        elif tag_id == 335:
+            which_cut = 3
+        elif tag_id == 394:
+            which_cut = 4
+
+        np.savetxt('3_ctrl_params/'+ str(which_cut) + '_' + str(self.params.printer_attribute.which_part) +'_dh.csv', dh, delimiter=',',fmt='%.6f')
+
+    def tail_print(self):
+        try:
+            print('正在获取当前二维码信息')
+            tag_data = self.plc.get_tag_data()
+            tag_id = tag_data[0]
+            if tag_id == 421:
+                which_cut = 1
+            elif tag_id == 417:
+                which_cut = 2
+            elif tag_id == 335:
+                which_cut = 3
+            elif tag_id == 394:
+                which_cut = 4
+            if tag_data != 0:
+                print('获取二维码成功，当前二维码数据为: ', tag_data)
+                pos_list = self.path_from_world_to_arm(tag_data)
+
+                if self.params.printer_attribute.witch_floor == 1:
+                    self.save_first_floor_dh(pos_list,tag_data)
+                    dh = self.params.printer_attribute.floor_height
+                else:
+                    dh = self.params.printer_attribute.floor_height * (self.params.printer_attribute.witch_floor-1)
+
+                d_hz = np.loadtxt('3_ctrl_params/'+ str(which_cut) + '_' + str(self.params.printer_attribute.which_part) +'_dh.csv',delimiter=',')
+                pos_list = self.path_from_world_to_arm(tag_data)
+                for i in range(len(d_hz)):
+                    pos_list[i,2] = pos_list[i,2] - d_hz[i] + dh
+
+
+                # for i in range(len(pos_list)):
+                #     pos_list[i,2] = pos_list[i,2] + 200
+                socketFd = nrc.connect_robot(self.arm.ip,self.arm.port)
+                print('初始化机械臂id: ', socketFd)
+                if socketFd <= 0:
+                    print('连接失败，程序即将退出')
+                    time.sleep(3)
+                    return 0
+                else:
+                    print('机械臂连接成功')
+                
+                # 获取打印路径的起始点
+                p_start = [pos_list[0,0], pos_list[0,1], pos_list[0,2], pos_list[0,3], pos_list[0,4], pos_list[0,5]]
+                print("按空格键前往起点...\n",p_start)
+                keyboard.wait('space')
+                # print("正在运行连续路径...")
+                print('正在前往此段打印起始点...')
+
+                # 点动至路径起始点
+                self.arm.moveP_test(socketFd,p_start,vec=self.params.printer_attribute.linear_speed,acc=self.params.printer_attribute.linear_acc)
+                nrc.disconnect_robot(socketFd)
+
+                print("按空格键继续...")
+                keyboard.wait('space')
+                print("正在运行连续路径...")
+
+                # 重新连接机械臂
+                socketFd = nrc.connect_robot(self.arm.ip,self.arm.port)
+                print('初始化机械臂id: ', socketFd)
+                if socketFd <= 0:
+                    print('连接失败，程序即将退出')
+                    time.sleep(3)
+                    return 0
+                else:
+                    print('机械臂连接成功')
+                
+                # 开启挤出头
+                print('即将开启挤出头')
+                self.plc.extruder_start(self.params.printer_attribute.rOverride)
+                # 机械臂开始连续运动
+                print('即将开始连续运动')
+                self.arm.moves_test(socketFd,pos_list,vec=self.params.printer_attribute.linear_speed,acc=self.params.printer_attribute.linear_acc)
+                print('连续运动结束')
+
+                # 关闭挤出头
+                self.plc.extruder_close()
+                # 断开连接
+                nrc.disconnect_robot(socketFd)
+
+                # 此段结束后的抬升点
+                p_end = [ 
+                    pos_list[len(pos_list)-1,0], 
+                    pos_list[len(pos_list)-1,1], 
+                    pos_list[len(pos_list)-1,2] + 100, 
+                    pos_list[len(pos_list)-1,3], 
+                    pos_list[len(pos_list)-1,4], 
+                    pos_list[len(pos_list)-1,5]
+                    ]
+                
+                print("按空格键略微抬升")
+                keyboard.wait('space')
+                print("正在抬升...")
+                # 
+                socketFd = nrc.connect_robot(self.arm.ip,self.arm.port)
+                print('初始化机械臂id: ', socketFd)
+                if socketFd <= 0:
+                    print('连接失败，程序即将退出')
+                    time.sleep(3)
+                    return 0
+                else:
+                    print('机械臂连接成功')
+                self.arm.moveP_test(socketFd,p_end,vec=self.params.printer_attribute.linear_speed,acc=self.params.printer_attribute.linear_acc)
+                nrc.disconnect_robot(socketFd)
+                time.sleep(1)
+                print('此段路径行走完毕')
+
+                return 1
+            else:
+                return 0
+
+        except Exception as e:
+            print('发送错误：',e)
+            return 0
 
     def sand_test(self):
         try:
@@ -580,7 +830,7 @@ class printer_ctrl:
                 
                 # 获取打印路径的起始点
                 p_start = [pos_list[0,0], pos_list[0,1], pos_list[0,2], pos_list[0,3], pos_list[0,4], pos_list[0,5]]
-                print("按空格键前往起点...",p_start)
+                print("按空格键前往起点...\n",p_start)
                 keyboard.wait('space')
                 # print("正在运行连续路径...")
                 print('正在前往此段打印起始点...')
@@ -607,6 +857,7 @@ class printer_ctrl:
                 print('即将开始连续运动')
                 self.arm.moves_test(socketFd,pos_list,vec=self.params.printer_attribute.linear_speed,acc=self.params.printer_attribute.linear_acc)
                 print('连续运动结束')
+                
                 # 断开连接
                 nrc.disconnect_robot(socketFd)
 

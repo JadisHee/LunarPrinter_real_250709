@@ -187,7 +187,7 @@ if __name__ == '__main__':
 
     # tag_data = get_tag()
     # if tag_data != 0:
-    tag_data = [421,0,0,45]
+    tag_data = [421,-0.1,-0.3,44.7999]
     path = path_from_world_to_arm(tag_data)
     print(path)
     tail_viewer([path])

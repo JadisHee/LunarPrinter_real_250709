@@ -50,6 +50,9 @@
 
         <!--打印第几层-->
         <which_floor>1</which_floor>
+        <first_floor_height>25</first_floor_height>
+        <floor_height>15</floor_height>
+
         <!--1：外墙，2：加强筋，3：内墙-->
         <which_part>2</which_part>
         <!--指定线速度-->
@@ -57,6 +60,9 @@
         <!--指定加速度-->
         <linear_acc>50</linear_acc>
         
+        <!--挤出头缩放比例-->
+        <rOverride>15</rOverride>
+
         <!--是否为漏沙实验-->
         <sand_test>1</sand_test>
         <!--漏沙高度-->

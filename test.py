@@ -52,21 +52,34 @@ if __name__ == "__main__":
     # T4 = T1 @ T2 @ T3
     # np.set_printoptions(suppress=True, precision=6)
     # print(T4)
-    V4 = [-3.871,-21.029,-4.8034]
-    T4 = code_bias.CodeDateToTransMat(V4)
-    np.set_printoptions(suppress=True, precision=6)
-    print(T4)
+    # V4 = [-205.118,-20.502,0]
+    # T4 = code_bias.CodeDateToTransMat(V4)
+    # np.set_printoptions(suppress=True, precision=6)
+    # print(T4)
 
-    A = np.array([
-        [-109.259254],
-        [-1109.295044],
-        [0],
-        [1]
-    ])
-    # A_ = np.linalg.inv(T4) @ A
-    A_ = T4 @ A
+    # V5 = [0,0,3.648]
+    # T5 = code_bias.CodeDateToTransMat(V5)
+    # np.set_printoptions(suppress=True, precision=6)
+    # print(T5)
+
+    V6 = [0,0,1.2387]
+    T6 = code_bias.CodeDateToTransMat(V6)
     np.set_printoptions(suppress=True, precision=6)
-    print(A_)
+    print(T6)
+
+    # T7 = T5 @ T4
+    # np.set_printoptions(suppress=True, precision=6)
+    # print(T7)
+    # A = np.array([
+    #     [-109.259254],
+    #     [-1109.295044],
+    #     [0],
+    #     [1]
+    # ])
+    # # A_ = np.linalg.inv(T4) @ A
+    # A_ = T4 @ A
+    # np.set_printoptions(suppress=True, precision=6)
+    # print(A_)
     # T4 =np.linalg.inv(T1) @ np.linalg.inv(T3) @ T2
     
     # print(T4)

@@ -60,6 +60,10 @@ class printer_attribute():
         self.which_part = int(printer_tree.find('which_part').text)
         self.linear_speed = float(printer_tree.find('linear_speed').text)
         self.linear_acc = float(printer_tree.find('linear_acc').text)
+        self.rOverride = int(printer_tree.find('rOverride').text)
+
+        self.first_floor_height = float(printer_tree.find('first_floor_height').text)
+        self.floor_height = float(printer_tree.find('floor_height').text)
 
         self.sand_test = int(printer_tree.find('sand_test').text)
         self.sand_hight = float(printer_tree.find('sand_hight').text)
