@@ -1,7 +1,7 @@
 from lunarprinter_ctrler import arm_status
 
 if __name__ == '__main__':
-    ip = '192.168.1.101'
+    ip = '192.168.1.13'
     port = 6001
     arm = arm_status(ip)
 
